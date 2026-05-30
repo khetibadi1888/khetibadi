@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KhetiBahi — Farm Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --soil:    #2C1A0E;
+    --earth:   #5C3D1E;
+    --clay:    #A0613A;
+    --wheat:   #D4A853;
+    --straw:   #F2D98B;
+    --leaf:    #3D7A45;
+    --sage:    #6BA368;
+    --mist:    #F7F3EC;
+    --paper:   #FFFDF7;
+    --ink:     #1A120B;
+    --red:     #C0392B;
+    --shadow:  rgba(44,26,14,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--mist);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background texture ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(212,168,83,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 100%, rgba(61,122,69,0.10) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ══════════════════ LOGIN PAGE ══════════════════ */
+  #login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    position: relative; z-index: 1;
+  }
+
+  .login-card {
+    background: var(--paper);
+    border: 1.5px solid rgba(92,61,30,0.18);
+    border-radius: 20px;
+    padding: 3rem 2.5rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px var(--shadow), 0 4px 16px rgba(0,0,0,0.06);
+    animation: fadeUp 0.6s cubic-bezier(.23,1,.32,1) both;
+  }
+
+  .login-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .login-logo .icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    animation: sway 3s ease-in-out infinite;
+  }
+
+  @keyframes sway {
+    0%,100% { transform: rotate(-3deg); }
+    50%      { transform: rotate(3deg); }
+  }
+
+  .login-logo h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--soil);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .login-logo p {
+    font-size: 0.82rem;
+    color: var(--clay);
+    margin-top: 0.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .login-divider {
+    height: 1.5px;
+    background: linear-gradient(to right, transparent, var(--straw), transparent);
+    margin: 1.8rem 0;
+  }
+
+  .form-group {
+    margin-bottom: 1.2rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--earth);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 0.45rem;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid rgba(92,61,30,0.2);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    background: var(--mist);
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--leaf);
+    box-shadow: 0 0 0 3px rgba(61,122,69,0.12);
+    background: white;
+  }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  .btn {
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--leaf) 0%, #2d6334 100%);
+    color: white;
+    box-shadow: 0 4px 14px rgba(61,122,69,0.35);
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(61,122,69,0.45); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--mist);
+    color: var(--earth);
+    border: 1.5px solid rgba(92,61,30,0.2);
+  }
+
+  .btn-secondary:hover { background: var(--straw); }
+
+  .error-msg {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: var(--red);
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    margin-top: 1rem;
+    display: none;
+  }
+
+  /* ══════════════════ MAIN APP ══════════════════ */
+  #app-page { display: none; position: relative; z-index: 1; }
+
+  .top-bar {
+    background: var(--soil);
+    color: white;
+    padding: 0.9rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+
+  .top-bar-brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    letter-spacing: -0.3px;
+  }
+
+  .top-bar-brand span { color: var(--wheat); }
+
+  .top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.88rem;
+  }
+
+  .user-badge {
+    background: rgba(212,168,83,0.2);
+    border: 1px solid rgba(212,168,83,0.4);
+    color: var(--straw);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+
+  .logout-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.7);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .logout-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    background: var(--paper);
+    border-bottom: 1.5px solid rgba(92,61,30,0.12);
+    padding: 0 1.5rem;
+    gap: 0;
+  }
+
+  .tab {
+    padding: 0.9rem 1.4rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--clay);
+    cursor: pointer;
+    border-bottom: 2.5px solid transparent;
+    transition: all 0.2s;
+    margin-bottom: -1.5px;
+    letter-spacing: 0.02em;
+  }
+
+  .tab:hover { color: var(--earth); }
+  .tab.active { color: var(--leaf); border-bottom-color: var(--leaf); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── Form section ── */
+  .section {
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--soil);
+    margin-bottom: 0.3rem;
+  }
+
+  .section-sub {
+    font-size: 0.85rem;
+    color: var(--clay);
+    margin-bottom: 1.8rem;
+  }
+
+  .form-card {
+    background: var(--paper);
+    border: 1.5px solid rgba(92,61,30,0.12);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px var(--shadow);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  .amount-wrap { position: relative; }
+  .amount-wrap::before {
+    content: '₹';
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--clay);
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .amount-wrap input { padding-left: 2rem; }
+
+  /* Screenshot upload */
+  .upload-zone {
+    border: 2px dashed rgba(92,61,30,0.25);
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--mist);
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--leaf);
+    background: rgba(61,122,69,0.05);
+  }
+
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  .upload-icon { font-size: 1.8rem; display: block; margin-bottom: 0.4rem; }
+  .upload-text { font-size: 0.88rem; color: var(--clay); }
+  .upload-text strong { color: var(--leaf); }
+
+  .file-preview {
+    margin-top: 0.8rem;
+    padding: 0.6rem 1rem;
+    background: rgba(61,122,69,0.08);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--leaf);
+    font-weight: 500;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .submit-area {
+    margin-top: 1.8rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .success-banner {
+    background: #F0FDF4;
+    border: 1.5px solid #86EFAC;
+    color: #166534;
+    padding: 1rem 1.2rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 1rem;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* ── Records table ── */
+  .records-section {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .records-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .refresh-btn {
+    background: var(--paper);
+    border: 1.5px solid rgba(92,61,30,0.2);
+    color: var(--earth);
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .refresh-btn:hover { background: var(--straw); }
+
+  .table-wrap {
+    background: var(--paper);
+    border: 1.5px solid rgba(92,61,30,0.12);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px var(--shadow);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+  }
+
+  thead {
+    background: var(--soil);
+    color: white;
+  }
+
+  th {
+    padding: 0.9rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid rgba(92,61,30,0.08);
+    color: var(--ink);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr:hover td { background: rgba(212,168,83,0.06); }
+
+  .category-badge {
+    background: rgba(61,122,69,0.1);
+    color: var(--leaf);
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .amount-cell {
+    font-weight: 700;
+    color: var(--soil);
+    font-size: 0.95rem;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 3rem;
+    color: var(--clay);
+  }
+
+  .no-data-icon { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
+
+  /* ── Summary cards ── */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .summary-card {
+    background: var(--paper);
+    border: 1.5px solid rgba(92,61,30,0.12);
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+    box-shadow: 0 2px 10px var(--shadow);
+  }
+
+  .summary-card .label {
+    font-size: 0.75rem;
+    color: var(--clay);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 0.4rem;
+  }
+
+  .summary-card .value {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--soil);
+    line-height: 1;
+  }
+
+  .summary-card .value.green { color: var(--leaf); }
+  .summary-card .value small {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    color: var(--clay);
+    font-weight: 400;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: auto; }
+    .top-bar-brand { font-size: 1.1rem; }
+    .records-section { padding: 0 0.8rem; }
+    table { font-size: 0.78rem; }
+    th, td { padding: 0.65rem 0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="icon">🌾</span>
+      <h1>KhetiBahi</h1>
+      <p>Farm Expense Tracker</p>
+    </div>
+    <div class="login-divider"></div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="Enter your username" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter your password" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════ MAIN APP ══════════ -->
+<div id="app-page">
+  <div class="top-bar">
+    <div class="top-bar-brand">Kheti<span>Bahi</span> 🌾</div>
+    <div class="top-bar-right">
+      <span class="user-badge" id="user-display">—</span>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('add')">➕ Add Expense</div>
+    <div class="tab" onclick="switchTab('records')">📋 Records</div>
+  </div>
+
+  <!-- ADD EXPENSE TAB -->
+  <div class="tab-content active" id="tab-add">
+    <div class="section">
+      <h2 class="section-title">Record an Expense</h2>
+      <p class="section-sub">Fill in all the details and attach your payment screenshot.</p>
+      <div class="form-card">
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="f-date">
+          </div>
+
+          <div class="form-group">
+            <label>Farm Location *</label>
+            <select id="f-location">
+              <option value="">Select location…</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Category *</label>
+            <select id="f-category">
+              <option value="">Select category…</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Amount *</label>
+            <div class="amount-wrap">
+              <input type="number" id="f-amount" placeholder="0" min="0" step="0.01">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Vendor / Supplier *</label>
+            <input type="text" id="f-vendor" placeholder="Vendor name or shop">
+          </div>
+
+          <div class="form-group">
+            <label>Payment Mode *</label>
+            <select id="f-payment">
+              <option value="">Select mode…</option>
+            </select>
+          </div>
+
+          <div class="form-group full">
+            <label>Notes</label>
+            <textarea id="f-notes" placeholder="Any additional details (optional)…"></textarea>
+          </div>
+
+          <div class="form-group full">
+            <label>Payment Screenshot / Receipt</label>
+            <div class="upload-zone" id="upload-zone">
+              <input type="file" id="f-screenshot" accept="image/*,.pdf" onchange="handleFileSelect(this)">
+              <span class="upload-icon">📎</span>
+              <div class="upload-text"><strong>Click to upload</strong> or drag & drop</div>
+              <div class="upload-text" style="margin-top:0.25rem;font-size:0.78rem;">JPG, PNG, PDF up to 10 MB</div>
+            </div>
+            <div class="file-preview" id="file-preview">
+              <span>✅</span><span id="file-name-display">—</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="submit-area">
+          <button class="btn btn-primary" style="max-width:220px;" id="submit-btn" onclick="submitExpense()">
+            Submit Expense
+          </button>
+          <button class="btn btn-secondary" style="max-width:120px;" onclick="resetForm()">Clear</button>
+        </div>
+
+        <div class="error-msg" id="submit-error"></div>
+        <div class="success-banner" id="submit-success">
+          <span>🎉</span> Expense recorded successfully in Google Sheets!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORDS TAB -->
+  <div class="tab-content" id="tab-records">
+    <div class="records-section">
+      <div class="records-header">
+        <div>
+          <h2 class="section-title">All Expenses</h2>
+          <p class="section-sub" style="margin:0">Live data from your Google Sheet</p>
+        </div>
+        <button class="refresh-btn" onclick="loadRecords()">🔄 Refresh</button>
+      </div>
+
+      <div class="summary-bar" id="summary-bar"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Location</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Vendor</th>
+              <th>Payment</th>
+              <th>By</th>
+              <th>Notes</th>
+              <th>Photo</th>
+            </tr>
+          </thead>
+          <tbody id="records-body">
+            <tr><td colspan="9" class="no-data"><span class="no-data-icon">📊</span>Click Refresh to load records</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG — paste your Apps Script Web App URL here ─────────────────────────
+// After deploying in Apps Script: Deploy → New deployment → Web App → Copy URL
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwXI0TZm2phm5TMokbuhwk-Yhkheabie1Bl3fVU_xobAomGCzUlaHMO4j9Z0ist2RXR4Q/exec";
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+let authToken   = localStorage.getItem("farm_token");
+let currentUser = localStorage.getItem("farm_user");
+let displayName = localStorage.getItem("farm_display");
+let selectedFile = null;
+
+// ── Apps Script API wrapper ───────────────────────────────────────────────────
+// Apps Script Web Apps don't support custom HTTP headers (no Bearer token).
+// We pass the token as a field inside the POST body instead.
+async function gasCall(action, body = {}) {
+  const payload = { ...body, token: authToken || "", action };
+  const url = APPS_SCRIPT_URL + "?action=" + action;
+  const res = await fetch(url, {
+    method: "POST",
+    // Apps Script requires text/plain to avoid CORS pre-flight issues
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload),
+    redirect: "follow",
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  if (authToken) {
+    try {
+      await gasCall("config");   // validates session
+      showApp();
+      await loadConfig();
+      return;
+    } catch { clearAuth(); }
+  }
+  showLogin();
+})();
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById("login-page").style.display = "flex";
+  document.getElementById("app-page").style.display = "none";
+}
+
+function showApp() {
+  document.getElementById("login-page").style.display = "none";
+  document.getElementById("app-page").style.display = "block";
+  document.getElementById("user-display").textContent = displayName || currentUser;
+  setTodayDate();
+}
+
+function clearAuth() {
+  authToken = currentUser = displayName = null;
+  localStorage.removeItem("farm_token");
+  localStorage.removeItem("farm_user");
+  localStorage.removeItem("farm_display");
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+document.getElementById("login-pass").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
+});
+
+async function doLogin() {
+  const btn = document.getElementById("login-btn");
+  const err = document.getElementById("login-error");
+  const username = document.getElementById("login-user").value.trim().toLowerCase();
+  const password = document.getElementById("login-pass").value;
+  err.style.display = "none";
+
+  if (!username || !password) {
+    err.textContent = "Please enter both username and password.";
+    err.style.display = "block";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  try {
+    const data = await gasCall("login", { username, password });
+
+    authToken   = data.token;
+    currentUser = data.username;
+    displayName = data.display_name;
+    localStorage.setItem("farm_token",   authToken);
+    localStorage.setItem("farm_user",    currentUser);
+    localStorage.setItem("farm_display", displayName);
+
+    showApp();
+    await loadConfig();
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "Sign In";
+  }
+}
+
+async function doLogout() {
+  try { await gasCall("logout"); } catch {}
+  clearAuth();
+  showLogin();
+}
+
+// ── Config (dropdowns) ────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const data = await gasCall("config");
+    fillSelect("f-category", data.categories);
+    fillSelect("f-location", data.locations);
+    fillSelect("f-payment",  data.payment_modes);
+  } catch (e) {
+    console.error("Config load error:", e);
+  }
+}
+
+function fillSelect(id, items) {
+  const sel   = document.getElementById(id);
+  const first = sel.options[0];
+  sel.innerHTML = "";
+  sel.appendChild(first);
+  items.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item; opt.textContent = item;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach((t, i) => {
+    t.classList.toggle("active", (i === 0 && name === "add") || (i === 1 && name === "records"));
+  });
+  document.getElementById("tab-add").classList.toggle("active",     name === "add");
+  document.getElementById("tab-records").classList.toggle("active", name === "records");
+  if (name === "records") loadRecords();
+}
+
+// ── Form ──────────────────────────────────────────────────────────────────────
+function setTodayDate() {
+  document.getElementById("f-date").value = new Date().toISOString().split("T")[0];
+}
+
+function handleFileSelect(input) {
+  selectedFile = input.files[0] || null;
+  const preview = document.getElementById("file-preview");
+  const nameEl  = document.getElementById("file-name-display");
+  if (selectedFile) {
+    nameEl.textContent = selectedFile.name + " (" + (selectedFile.size / 1024).toFixed(1) + " KB)";
+    preview.style.display = "flex";
+  } else {
+    preview.style.display = "none";
+  }
+}
+
+const uploadZone = document.getElementById("upload-zone");
+uploadZone.addEventListener("dragover",  e => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
+uploadZone.addEventListener("dragleave", ()  => uploadZone.classList.remove("drag-over"));
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault();
+  uploadZone.classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById("f-screenshot").files = e.dataTransfer.files;
+    handleFileSelect(document.getElementById("f-screenshot"));
+  }
+});
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Submit expense ────────────────────────────────────────────────────────────
+async function submitExpense() {
+  const btn = document.getElementById("submit-btn");
+  const err = document.getElementById("submit-error");
+  const suc = document.getElementById("submit-success");
+  err.style.display = "none";
+  suc.style.display = "none";
+
+  const payload = {
+    date:          document.getElementById("f-date").value,
+    farm_location: document.getElementById("f-location").value,
+    category:      document.getElementById("f-category").value,
+    amount:        document.getElementById("f-amount").value,
+    vendor:        document.getElementById("f-vendor").value.trim(),
+    payment_mode:  document.getElementById("f-payment").value,
+    notes:         document.getElementById("f-notes").value.trim(),
+    screenshot_name: selectedFile ? selectedFile.name : null,
+  };
+
+  const missing = ["date","farm_location","category","amount","vendor","payment_mode"]
+    .filter(k => !payload[k]);
+  if (missing.length) {
+    err.textContent = "Please fill in all required fields.";
+    err.style.display = "block";
+    return;
+  }
+
+  if (selectedFile) {
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      err.textContent = "Photo is too large (max 5 MB). Please choose a smaller file.";
+      err.style.display = "block";
+      return;
+    }
+    try {
+      payload.screenshot_base64 = await readFileAsBase64(selectedFile);
+    } catch {
+      err.textContent = "Could not read the photo file. Please try again.";
+      err.style.display = "block";
+      return;
+    }
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>' + (selectedFile ? "Uploading photo & saving…" : "Submitting…");
+
+  try {
+    const data = await gasCall("submit", payload);
+    suc.style.display = "flex";
+    if (data.photo_url && data.photo_url !== "No photo") {
+      const link = document.createElement("a");
+      link.href = data.photo_url; link.target = "_blank";
+      link.textContent = " View uploaded photo →";
+      link.style.marginLeft = "8px";
+      suc.appendChild(link);
+    }
+    resetForm();
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "Submit Expense";
+  }
+}
+
+function resetForm() {
+  ["f-date","f-amount","f-vendor","f-notes"].forEach(id => {
+    document.getElementById(id).value = id === "f-date" ? new Date().toISOString().split("T")[0] : "";
+  });
+  ["f-location","f-category","f-payment"].forEach(id => {
+    document.getElementById(id).selectedIndex = 0;
+  });
+  document.getElementById("f-screenshot").value = "";
+  document.getElementById("file-preview").style.display = "none";
+  selectedFile = null;
+}
+
+// ── Records ───────────────────────────────────────────────────────────────────
+async function loadRecords() {
+  const tbody = document.getElementById("records-body");
+  tbody.innerHTML = `<tr><td colspan="9" class="no-data"><span class="no-data-icon">⏳</span>Loading…</td></tr>`;
+
+  try {
+    const data = await gasCall("expenses");
+    const rows = data.expenses;
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="9" class="no-data"><span class="no-data-icon">📭</span>No expenses recorded yet</td></tr>`;
+      renderSummary([]);
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const photoUrl  = r["Photo URL"] || "";
+      const photoCell = photoUrl && photoUrl.startsWith("http")
+        ? `<a href="${photoUrl}" target="_blank" style="color:var(--green);font-weight:600;text-decoration:none">📷 View</a>`
+        : `<span style="color:var(--muted)">—</span>`;
+      const dateVal = r["Date"] instanceof Date
+        ? r["Date"].toISOString().split("T")[0]
+        : String(r["Date"] || "—");
+      return `
+      <tr>
+        <td>${dateVal}</td>
+        <td>${r["Farm Location"] || "—"}</td>
+        <td><span class="category-badge">${r["Category"] || "—"}</span></td>
+        <td class="amount-cell">₹${Number(r["Amount (₹)"] || 0).toLocaleString("en-IN")}</td>
+        <td>${r["Vendor"] || "—"}</td>
+        <td>${r["Payment Mode"] || "—"}</td>
+        <td>${r["Submitted By"] || "—"}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r["Notes"]||""}">${r["Notes"] || "—"}</td>
+        <td>${photoCell}</td>
+      </tr>`;
+    }).join("");
+
+    renderSummary(rows);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="9" class="no-data" style="color:var(--red)">⚠️ ${e.message}</td></tr>`;
+  }
+}
+
+function renderSummary(rows) {
+  const total = rows.reduce((s, r) => s + Number(r["Amount (₹)"] || 0), 0);
+  const today = new Date().toISOString().split("T")[0];
+  const todayTotal = rows
+    .filter(r => String(r["Date"]).startsWith(today))
+    .reduce((s, r) => s + Number(r["Amount (₹)"] || 0), 0);
+
+  const categories = {};
+  rows.forEach(r => {
+    const c = r["Category"] || "Other";
+    categories[c] = (categories[c] || 0) + Number(r["Amount (₹)"] || 0);
+  });
+  const topCat = Object.entries(categories).sort((a,b) => b[1]-a[1])[0];
+
+  document.getElementById("summary-bar").innerHTML = `
+    <div class="summary-card">
+      <div class="label">Total Spent</div>
+      <div class="value">₹${total.toLocaleString("en-IN")}<small> all time</small></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Today</div>
+      <div class="value green">₹${todayTotal.toLocaleString("en-IN")}<small> today</small></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Total Entries</div>
+      <div class="value">${rows.length}<small> records</small></div>
+    </div>
+    ${topCat ? `<div class="summary-card">
+      <div class="label">Top Category</div>
+      <div class="value" style="font-size:1.1rem;padding-top:0.3rem">${topCat[0]}<br><small>₹${topCat[1].toLocaleString("en-IN")}</small></div>
+    </div>` : ""}
+  `;
+}
+</script>
+</body>
+</html>
