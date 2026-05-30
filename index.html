@@ -672,6 +672,24 @@
 
       <div class="summary-bar" id="summary-bar"></div>
 
+      <!-- Filter bar -->
+      <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;align-items:center">
+        <select id="filter-period" onchange="applyFilter()" style="padding:8px 14px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;background:#fff;cursor:pointer">
+          <option value="all">All Time</option>
+          <option value="this_week">This Week</option>
+          <option value="last_week">Last Week</option>
+          <option value="this_month" selected>This Month</option>
+          <option value="last_month">Last Month</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <div id="custom-range" style="display:none;gap:8px;align-items:center;display:none">
+          <input type="date" id="filter-from" onchange="applyFilter()" style="padding:8px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem">
+          <span>to</span>
+          <input type="date" id="filter-to" onchange="applyFilter()" style="padding:8px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem">
+        </div>
+        <span id="filter-count" style="font-size:0.85rem;color:#888"></span>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -682,13 +700,12 @@
               <th>Amount</th>
               <th>Vendor</th>
               <th>Payment</th>
-              <th>By</th>
               <th>Notes</th>
               <th>Photo</th>
             </tr>
           </thead>
           <tbody id="records-body">
-            <tr><td colspan="9" class="no-data"><span class="no-data-icon">📊</span>Click Refresh to load records</td></tr>
+            <tr><td colspan="8" class="no-data"><span class="no-data-icon">📊</span>Click Refresh to load records</td></tr>
           </tbody>
         </table>
       </div>
@@ -951,54 +968,136 @@ function resetForm() {
   selectedFile = null;
 }
 
-// ── Records ───────────────────────────────────────────────────────────────────
+// ── All expenses stored here after fetch ──────────────────────────────────────
+let allExpenses = [];
+
+function parseDate(val) {
+  // Handles "2026-03-05T18:30:00.000Z", "2026-03-05", Date objects
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  // Strip time part if present
+  const s = String(val).split("T")[0].trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + "T00:00:00");
+  return null;
+}
+
+function formatDate(val) {
+  const d = parseDate(val);
+  if (!d) return "—";
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function getFilterDates() {
+  const period = document.getElementById("filter-period").value;
+  const now    = new Date();
+  const today  = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (period === "all") return { from: null, to: null };
+
+  if (period === "this_week") {
+    const day  = today.getDay(); // 0=Sun
+    const from = new Date(today); from.setDate(today.getDate() - day);
+    const to   = new Date(from);  to.setDate(from.getDate() + 6);
+    return { from, to };
+  }
+  if (period === "last_week") {
+    const day  = today.getDay();
+    const from = new Date(today); from.setDate(today.getDate() - day - 7);
+    const to   = new Date(from);  to.setDate(from.getDate() + 6);
+    return { from, to };
+  }
+  if (period === "this_month") {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const to   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { from, to };
+  }
+  if (period === "last_month") {
+    const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const to   = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { from, to };
+  }
+  if (period === "custom") {
+    const f = document.getElementById("filter-from").value;
+    const t = document.getElementById("filter-to").value;
+    return {
+      from: f ? new Date(f + "T00:00:00") : null,
+      to:   t ? new Date(t + "T23:59:59") : null,
+    };
+  }
+  return { from: null, to: null };
+}
+
+function applyFilter() {
+  const period = document.getElementById("filter-period").value;
+  const customEl = document.getElementById("custom-range");
+  customEl.style.display = period === "custom" ? "flex" : "none";
+
+  const { from, to } = getFilterDates();
+  const filtered = allExpenses.filter(r => {
+    const d = parseDate(r["Date"]);
+    if (!d) return true;
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
+
+  renderTable(filtered);
+  renderSummary(filtered);
+
+  const countEl = document.getElementById("filter-count");
+  countEl.textContent = filtered.length + " of " + allExpenses.length + " entries";
+}
+
 async function loadRecords() {
   const tbody = document.getElementById("records-body");
-  tbody.innerHTML = `<tr><td colspan="9" class="no-data"><span class="no-data-icon">⏳</span>Loading…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="no-data"><span class="no-data-icon">⏳</span>Loading…</td></tr>`;
 
   try {
     const data = await apiCall("/api/expenses");
-    const rows = data.expenses;
+    allExpenses = data.expenses || [];
 
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="no-data"><span class="no-data-icon">📭</span>No expenses recorded yet</td></tr>`;
+    if (!allExpenses.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="no-data"><span class="no-data-icon">📭</span>No expenses recorded yet</td></tr>`;
       renderSummary([]);
       return;
     }
 
-    tbody.innerHTML = rows.map(r => {
-      const photoUrl  = r["Photo URL"] || "";
-      const photoCell = photoUrl && photoUrl.startsWith("http")
-        ? `<a href="${photoUrl}" target="_blank" style="color:var(--green);font-weight:600;text-decoration:none">📷 View</a>`
-        : `<span style="color:var(--muted)">—</span>`;
-      const dateVal = r["Date"] instanceof Date
-        ? r["Date"].toISOString().split("T")[0]
-        : String(r["Date"] || "—");
-      return `
-      <tr>
-        <td>${dateVal}</td>
-        <td>${r["Paid By"] || r["Farm Location"] || "—"}</td>
-        <td><span class="category-badge">${r["Category"] || "—"}</span></td>
-        <td class="amount-cell">₹${Number(r["Amount (₹)"] || 0).toLocaleString("en-IN")}</td>
-        <td>${r["Vendor"] || "—"}</td>
-        <td>${r["Payment Mode"] || "—"}</td>
-        <td>${r["Submitted By"] || "—"}</td>
-        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r["Notes"]||""}">${r["Notes"] || "—"}</td>
-        <td>${photoCell}</td>
-      </tr>`;
-    }).join("");
-
-    renderSummary(rows);
+    applyFilter();
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="9" class="no-data" style="color:var(--red)">⚠️ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="no-data" style="color:var(--red)">⚠️ ${e.message}</td></tr>`;
   }
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById("records-body");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="no-data"><span class="no-data-icon">🔍</span>No entries for this period</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const photoUrl  = r["Photo URL"] || "";
+    const photoCell = photoUrl && photoUrl.startsWith("http")
+      ? `<a href="${photoUrl}" target="_blank" style="color:var(--green);font-weight:600;text-decoration:none">📷 View</a>`
+      : `<span style="color:var(--muted)">—</span>`;
+    return `
+    <tr>
+      <td>${formatDate(r["Date"])}</td>
+      <td>${r["Paid By"] || r["Farm Location"] || "—"}</td>
+      <td><span class="category-badge">${r["Category"] || "—"}</span></td>
+      <td class="amount-cell">₹${Number(r["Amount (₹)"] || 0).toLocaleString("en-IN")}</td>
+      <td>${r["Vendor"] || "—"}</td>
+      <td>${r["Payment Mode"] || "—"}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r["Notes"]||""}">${r["Notes"] || "—"}</td>
+      <td>${photoCell}</td>
+    </tr>`;
+  }).join("");
 }
 
 function renderSummary(rows) {
   const total = rows.reduce((s, r) => s + Number(r["Amount (₹)"] || 0), 0);
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(); today.setHours(0,0,0,0);
   const todayTotal = rows
-    .filter(r => String(r["Date"]).startsWith(today))
+    .filter(r => { const d = parseDate(r["Date"]); return d && d.getTime() === today.getTime(); })
     .reduce((s, r) => s + Number(r["Amount (₹)"] || 0), 0);
 
   const categories = {};
