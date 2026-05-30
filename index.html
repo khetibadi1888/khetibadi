@@ -699,9 +699,9 @@
 </div>
 
 <script>
-// ── CONFIG — paste your Apps Script Web App URL here ─────────────────────────
-// After deploying in Apps Script: Deploy → New deployment → Web App → Copy URL
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwXI0TZm2phm5TMokbuhwk-Yhkheabie1Bl3fVU_xobAomGCzUlaHMO4j9Z0ist2RXR4Q/exec";
+// ── CONFIG — paste your Render Python proxy URL here ─────────────────────────
+// This is the ONLY URL the browser knows. Apps Script URL stays on the server.
+const API_BASE = "https://farm-tracker-backend.onrender.com";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -710,19 +710,14 @@ let currentUser = localStorage.getItem("farm_user");
 let displayName = localStorage.getItem("farm_display");
 let selectedFile = null;
 
-// ── Apps Script API wrapper ───────────────────────────────────────────────────
-// Apps Script Web Apps don't support custom HTTP headers (no Bearer token).
-// We pass the token as a field inside the POST body instead.
-async function gasCall(action, body = {}) {
-  const payload = { ...body, token: authToken || "", action };
-  const url = APPS_SCRIPT_URL + "?action=" + action;
-  const res = await fetch(url, {
-    method: "POST",
-    // Apps Script requires text/plain to avoid CORS pre-flight issues
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify(payload),
-    redirect: "follow",
-  });
+// ── API wrapper — talks to Python proxy with Bearer token ─────────────────────
+async function apiCall(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(authToken ? { "Authorization": "Bearer " + authToken } : {}),
+    ...(options.headers || {}),
+  };
+  const res  = await fetch(API_BASE + path, { ...options, headers });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
@@ -732,7 +727,7 @@ async function gasCall(action, body = {}) {
 (async function init() {
   if (authToken) {
     try {
-      await gasCall("config");   // validates session
+      await apiCall("/api/config");
       showApp();
       await loadConfig();
       return;
@@ -783,7 +778,7 @@ async function doLogin() {
   btn.innerHTML = '<span class="spinner"></span>Signing in…';
 
   try {
-    const data = await gasCall("login", { username, password });
+    const data = await apiCall("/api/login", { method: "POST", body: JSON.stringify({ username, password }) });
 
     authToken   = data.token;
     currentUser = data.username;
@@ -804,7 +799,7 @@ async function doLogin() {
 }
 
 async function doLogout() {
-  try { await gasCall("logout"); } catch {}
+  try { await apiCall("/api/logout", { method: "POST" }); } catch {}
   clearAuth();
   showLogin();
 }
@@ -812,7 +807,7 @@ async function doLogout() {
 // ── Config (dropdowns) ────────────────────────────────────────────────────────
 async function loadConfig() {
   try {
-    const data = await gasCall("config");
+    const data = await apiCall("/api/config");
     fillSelect("f-category", data.categories);
     fillSelect("f-location", data.locations);
     fillSelect("f-payment",  data.payment_modes);
@@ -928,7 +923,7 @@ async function submitExpense() {
   btn.innerHTML = '<span class="spinner"></span>' + (selectedFile ? "Uploading photo & saving…" : "Submitting…");
 
   try {
-    const data = await gasCall("submit", payload);
+    const data = await apiCall("/api/submit", { method: "POST", body: JSON.stringify(payload) });
     suc.style.display = "flex";
     if (data.photo_url && data.photo_url !== "No photo") {
       const link = document.createElement("a");
@@ -965,7 +960,7 @@ async function loadRecords() {
   tbody.innerHTML = `<tr><td colspan="9" class="no-data"><span class="no-data-icon">⏳</span>Loading…</td></tr>`;
 
   try {
-    const data = await gasCall("expenses");
+    const data = await apiCall("/api/expenses");
     const rows = data.expenses;
 
     if (!rows.length) {
