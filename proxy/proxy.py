@@ -1,14 +1,13 @@
 """
-KhetiBahi — Proxy server
-========================
+KhetiBadi — Proxy Server
+=========================
 Thin HTTP layer only. No business logic here.
-All rules, validation, and data formatting live in the business/ package.
 
-Env vars (set on Render):
-  APPS_SCRIPT_URL   — Apps Script Web App exec URL  (secret)
-  PROXY_SECRET      — random string for token entropy
-  ALLOWED_ORIGINS   — your GitHub Pages URL
-  PORT              — set automatically by Render
+Security split:
+  - LOGIN        → Apps Script (users/passwords never in GitHub)
+  - CONFIG       → config.json via config_service (categories, locations etc.)
+  - SUBMIT       → Apps Script (data storage + Drive photo upload)
+  - EXPENSES     → Apps Script (fetch) + business layer (filter, summarise)
 """
 
 import os
@@ -21,11 +20,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# Add parent dir to path so we can import business/
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from business import (
     auth_service,
+    config_service,
     validate_expense,
     filter_by_period,
     calculate_summary,
@@ -44,7 +43,6 @@ APPS_SCRIPT_URL = os.getenv("APPS_SCRIPT_URL", "")
 # ── Apps Script caller ────────────────────────────────────────────────────────
 
 def call_gas(action: str, body: dict, timeout: int = 60) -> dict:
-    """POST to Apps Script. Raises ValueError on app-level errors."""
     if not APPS_SCRIPT_URL:
         raise RuntimeError("APPS_SCRIPT_URL is not configured on this server.")
     resp = requests.post(
@@ -84,6 +82,10 @@ def health():
 
 @app.route("/api/login", methods=["POST"])
 def login():
+    """
+    Login verified by Apps Script — users/passwords stay in Code.gs only.
+    Never in GitHub, never in config.json.
+    """
     body     = request.get_json(force=True) or {}
     username = body.get("username", "").strip().lower()
     password = body.get("password", "")
@@ -91,7 +93,6 @@ def login():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
-    # Verify credentials with Apps Script
     try:
         gas_result = call_gas("login", {"username": username, "password": password})
     except ValueError as e:
@@ -99,7 +100,7 @@ def login():
     except Exception as e:
         return jsonify({"error": f"Could not reach backend: {e}"}), 502
 
-    # Create proxy session — GAS token stored server-side only
+    # Create proxy session — GAS token stored server-side only, never sent to browser
     proxy_token = auth_service.create_session(
         username     = gas_result["username"],
         display_name = gas_result["display_name"],
@@ -124,16 +125,32 @@ def logout():
 @app.route("/api/config", methods=["GET"])
 @require_auth
 def config():
-    session = request.session
-    # Cache config in session to save a round-trip on every page load
-    if "cached_config" in session:
-        return jsonify(session["cached_config"])
+    """
+    Categories, locations, payment modes come from config.json (Python).
+    Data engineers edit config.json and push — no Apps Script redeploy needed.
+    """
+    return jsonify(config_service.frontend_config())
+
+
+@app.route("/api/admin/config", methods=["GET"])
+@require_auth
+def admin_config():
+    """Full config view for data engineers. No passwords exposed."""
+    return jsonify(config_service.summary())
+
+
+@app.route("/api/admin/reload-config", methods=["POST"])
+@require_auth
+def reload_config():
+    """Hot-reload config.json without restarting Render."""
     try:
-        result = call_gas("config", {"token": auth_service.get_gas_token(session)})
+        config_service.reload()
+        return jsonify({
+            "message": "Config reloaded",
+            "summary": config_service.summary(),
+        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 502
-    session["cached_config"] = result
-    return jsonify(result)
+        return jsonify({"error": f"Reload failed: {e}"}), 500
 
 
 @app.route("/api/submit", methods=["POST"])
@@ -142,7 +159,7 @@ def submit():
     session = request.session
     body    = request.get_json(force=True) or {}
 
-    # ── Business layer: validate ──────────────────────────────────────────────
+    # Business layer validates against config.json rules
     errors = validate_expense(body)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
@@ -158,6 +175,9 @@ def submit():
         "notes":             body.get("notes", ""),
         "screenshot_name":   body.get("screenshot_name"),
         "screenshot_base64": body.get("screenshot_base64"),
+        "submitted_by":      session["username"],
+        "sheet_name":        config_service.sheet_name,
+        "drive_folder_name": config_service.drive_folder_name,
     }
 
     try:
@@ -176,24 +196,23 @@ def submit():
 @app.route("/api/expenses", methods=["GET"])
 @require_auth
 def expenses():
-    session = request.session
-
-    # Query params for filtering (passed from frontend)
+    session   = request.session
     period    = request.args.get("period", "all")
     date_from = request.args.get("from")
     date_to   = request.args.get("to")
 
     try:
-        result = call_gas("expenses", {"token": auth_service.get_gas_token(session)})
+        result = call_gas("expenses", {
+            "token":      auth_service.get_gas_token(session),
+            "sheet_name": config_service.sheet_name,
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
-    # ── Business layer: parse, filter, summarise ──────────────────────────────
     raw_expenses = [Expense.from_sheet_row(r) for r in result.get("expenses", [])]
-
-    filtered  = filter_by_period(raw_expenses, period, date_from, date_to)
-    summary   = calculate_summary(filtered)
-    formatted = format_expenses_for_frontend(filtered)
+    filtered     = filter_by_period(raw_expenses, period, date_from, date_to)
+    summary      = calculate_summary(filtered)
+    formatted    = format_expenses_for_frontend(filtered)
 
     return jsonify({
         "expenses": formatted,

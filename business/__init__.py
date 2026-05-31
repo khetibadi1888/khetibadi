@@ -1,5 +1,6 @@
 from .models import Expense, Summary
 from .auth_service import auth_service
+from .config_service import config_service
 from .expense_service import (
     validate_expense,
     filter_by_period,
@@ -11,6 +12,7 @@ __all__ = [
     "Expense",
     "Summary",
     "auth_service",
+    "config_service",
     "validate_expense",
     "filter_by_period",
     "calculate_summary",

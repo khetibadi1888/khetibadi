@@ -1,0 +1,51 @@
+{
+  "_comment": "KhetiBadi — Master config. Edit and push to deploy. Users and passwords are NOT here — they stay in Code.gs (Apps Script) for security.",
+
+  "categories": [
+    "Seeds",
+    "Fertilizer",
+    "Pesticide",
+    "Labour",
+    "Fuel",
+    "Equipment Rent",
+    "Irrigation",
+    "Repair",
+    "Transport",
+    "Electricity",
+    "Other"
+  ],
+
+  "locations": [
+    "North Farm",
+    "South Farm",
+    "Main Field",
+    "Greenhouse",
+    "Storage"
+  ],
+
+  "payment_modes": [
+    "Cash",
+    "UPI",
+    "Bank Transfer",
+    "Cheque",
+    "Other"
+  ],
+
+  "validation_rules": {
+    "max_amount": 1000000,
+    "max_photo_size_mb": 5,
+    "allowed_photo_types": ["jpg", "jpeg", "png", "webp", "pdf", "heic"],
+    "required_fields": ["date", "farm_location", "category", "amount", "vendor", "payment_mode"]
+  },
+
+  "session": {
+    "duration_hours": 12
+  },
+
+  "app": {
+    "name": "KhetiBadi",
+    "tagline": "Farm Expense Tracker",
+    "drive_folder_name": "Farm Expense Photos",
+    "sheet_name": "Expenses"
+  }
+}

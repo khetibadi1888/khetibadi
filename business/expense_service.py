@@ -1,60 +1,96 @@
 """
-KhetiBadi — Expense service
-All business rules live here.
-No HTTP, no Flask, no Google API calls — pure Python logic.
+KhetiBadi — Expense Service
+============================
+All business rules live here. No HTTP, no Flask, no Google API calls.
 
-Future growth ideas (add here, not in proxy):
+Validation rules come from config_service (config.json) — not hardcoded.
+Data engineers can change limits, required fields, and allowed photo types
+by editing config.json and pushing — no code change needed.
+
+Future growth (add functions here, not in proxy.py):
   - Budget limits per category
   - GST calculation
-  - Multi-farm aggregation
+  - Anomaly detection
   - Monthly report generation
-  - Anomaly detection (unusually large expense)
-  - WhatsApp / SMS notification triggers
+  - WhatsApp / SMS alert triggers
 """
 
 from datetime import date, datetime, timedelta
 from typing import Optional
+
 from .models import Expense, Summary
+from .config_service import config_service
+
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
-REQUIRED_FIELDS = ["date", "farm_location", "category", "amount", "vendor", "payment_mode"]
-MAX_PHOTO_BYTES = 5 * 1024 * 1024   # 5 MB
-MAX_AMOUNT      = 10_000_000        # 1 crore sanity cap
-
-
 def validate_expense(data: dict) -> list[str]:
     """
-    Validate raw input dict. Returns a list of error strings.
-    Empty list means valid.
+    Validate a raw expense dict against rules in config.json.
+    Returns a list of error strings. Empty list = valid.
+
+    Rules come from config.json validation_rules section:
+      - required_fields
+      - max_amount
+      - max_photo_size_mb
+      - allowed_photo_types
     """
-    errors = []
+    errors  = []
+    rules   = config_service.validation_rules
 
-    for field in REQUIRED_FIELDS:
+    # Required fields
+    for field in config_service.required_fields:
         if not data.get(field):
-            errors.append(f"'{field}' is required")
+            label = field.replace("_", " ").title()
+            errors.append(f"{label} is required")
 
+    # Amount validation
     if data.get("amount"):
         try:
             amt = float(data["amount"])
             if amt <= 0:
                 errors.append("Amount must be greater than 0")
-            if amt > MAX_AMOUNT:
-                errors.append(f"Amount seems too large (max ₹{MAX_AMOUNT:,})")
+            if amt > config_service.max_amount:
+                errors.append(f"Amount seems too large (max ₹{config_service.max_amount:,.0f})")
         except (ValueError, TypeError):
             errors.append("Amount must be a valid number")
 
+    # Date format
     if data.get("date"):
         try:
             datetime.strptime(data["date"], "%Y-%m-%d")
         except ValueError:
             errors.append("Date must be in YYYY-MM-DD format")
 
+    # Category must be in allowed list
+    if data.get("category") and not config_service.is_valid_category(data["category"]):
+        errors.append(
+            f"'{data['category']}' is not a valid category. "
+            f"Allowed: {', '.join(config_service.categories)}"
+        )
+
+    # Payment mode must be in allowed list
+    if data.get("payment_mode") and not config_service.is_valid_payment_mode(data["payment_mode"]):
+        errors.append(
+            f"'{data['payment_mode']}' is not a valid payment mode. "
+            f"Allowed: {', '.join(config_service.payment_modes)}"
+        )
+
+    # Photo size check
     if data.get("screenshot_base64"):
-        # Rough byte size estimate from base64 length
         estimated_bytes = len(data["screenshot_base64"]) * 3 // 4
-        if estimated_bytes > MAX_PHOTO_BYTES:
-            errors.append("Photo is too large (max 5 MB)")
+        if estimated_bytes > config_service.max_photo_size_bytes:
+            mb = config_service.max_photo_size_bytes // (1024 * 1024)
+            errors.append(f"Photo is too large (max {mb} MB)")
+
+    # Photo type check
+    if data.get("screenshot_name"):
+        ext = data["screenshot_name"].rsplit(".", 1)[-1].lower() if "." in data["screenshot_name"] else ""
+        if ext and ext not in config_service.allowed_photo_types:
+            errors.append(
+                f"'{ext}' is not an allowed photo type. "
+                f"Allowed: {', '.join(config_service.allowed_photo_types)}"
+            )
 
     return errors
 
@@ -62,7 +98,7 @@ def validate_expense(data: dict) -> list[str]:
 # ── Filtering ─────────────────────────────────────────────────────────────────
 
 def parse_date(val) -> Optional[date]:
-    """Robustly parse a date value from various formats."""
+    """Robustly parse a date from any format."""
     if not val:
         return None
     if isinstance(val, date):
@@ -74,9 +110,12 @@ def parse_date(val) -> Optional[date]:
         return None
 
 
-def filter_by_period(expenses: list[Expense], period: str,
-                     date_from: Optional[str] = None,
-                     date_to:   Optional[str] = None) -> list[Expense]:
+def filter_by_period(
+    expenses:  list[Expense],
+    period:    str,
+    date_from: Optional[str] = None,
+    date_to:   Optional[str] = None,
+) -> list[Expense]:
     """
     Filter expenses by time period.
     period: "all" | "this_week" | "last_week" | "this_month" | "last_month" | "custom"
@@ -95,15 +134,14 @@ def filter_by_period(expenses: list[Expense], period: str,
         end   = start + timedelta(days=6)
 
     elif period == "this_month":
-        start = today.replace(day=1)
-        # last day of this month
+        start      = today.replace(day=1)
         next_month = (today.replace(day=28) + timedelta(days=4)).replace(day=1)
-        end = next_month - timedelta(days=1)
+        end        = next_month - timedelta(days=1)
 
     elif period == "last_month":
         first_this = today.replace(day=1)
-        end   = first_this - timedelta(days=1)
-        start = end.replace(day=1)
+        end        = first_this - timedelta(days=1)
+        start      = end.replace(day=1)
 
     elif period == "custom":
         start = parse_date(date_from)
@@ -127,13 +165,10 @@ def filter_by_period(expenses: list[Expense], period: str,
     return result
 
 
-# ── Summary calculation ───────────────────────────────────────────────────────
+# ── Summary ───────────────────────────────────────────────────────────────────
 
 def calculate_summary(expenses: list[Expense]) -> Summary:
-    """
-    Calculate summary stats for a list of expenses.
-    Used for the summary cards on the Records tab.
-    """
+    """Calculate summary stats for the Records tab summary cards."""
     today = date.today()
     total = sum(e.amount for e in expenses)
 
@@ -163,7 +198,7 @@ def calculate_summary(expenses: list[Expense]) -> Summary:
 def format_expenses_for_frontend(expenses: list[Expense]) -> list[dict]:
     """
     Convert Expense objects to clean dicts for the frontend.
-    Normalises date format here so JS never needs to parse ISO timestamps.
+    Normalises date to '30 May 2026' so JS never needs to parse ISO strings.
     """
     result = []
     for e in expenses:

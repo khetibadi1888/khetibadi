@@ -19,4 +19,4 @@ Thumbs.db
 .idea/
 
 #gs code also need to be hide
-*.gs
+Code.gs
