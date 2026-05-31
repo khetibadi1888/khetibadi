@@ -166,3 +166,6 @@ No changes needed in Python or the frontend.
 - Multi-farm filtering
 - WhatsApp notification on large expenses
 - Anomaly detection (flag unusually large entries)
+
+
+## Live at https://khetibadi1888.github.io/khetibadi
