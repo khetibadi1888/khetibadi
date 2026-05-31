@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KhetiBadi — Farm Expense Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── LOGIN PAGE ── -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="icon">🌾</span>
+      <h1>Kheti<span>Badi</span></h1>
+      <p>Farm Expense Tracker</p>
+    </div>
+    <div class="login-divider"></div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="Enter username" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ── -->
+<div id="app-page">
+  <div class="top-bar">
+    <div class="top-bar-brand">Kheti<span>Badi</span> 🌾</div>
+    <div class="top-bar-right">
+      <span class="user-badge" id="user-display">—</span>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('add')">➕ Add Expense</div>
+    <div class="tab" onclick="switchTab('records')">📋 Records</div>
+  </div>
+
+  <!-- ADD EXPENSE TAB -->
+  <div class="tab-content active" id="tab-add">
+    <div class="section">
+      <h2 class="section-title">Record an Expense</h2>
+      <p class="section-sub">Fill in all the details and attach your payment screenshot.</p>
+      <div class="form-card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="f-date">
+          </div>
+          <div class="form-group">
+            <label>Paid By *</label>
+            <input type="text" id="f-location" placeholder="Name of person who paid">
+          </div>
+          <div class="form-group">
+            <label>Category *</label>
+            <select id="f-category">
+              <option value="">Select category…</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount *</label>
+            <div class="amount-wrap">
+              <input type="number" id="f-amount" placeholder="0" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Vendor / Supplier *</label>
+            <input type="text" id="f-vendor" placeholder="Vendor name or shop">
+          </div>
+          <div class="form-group">
+            <label>Payment Mode *</label>
+            <select id="f-payment">
+              <option value="">Select mode…</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            <textarea id="f-notes" placeholder="Any additional details (optional)…"></textarea>
+          </div>
+          <div class="form-group full">
+            <label>Payment Screenshot / Receipt</label>
+            <div class="upload-zone" id="upload-zone">
+              <input type="file" id="f-screenshot" accept="image/*,.pdf" onchange="handleFileSelect(this)">
+              <span class="upload-icon">📎</span>
+              <div class="upload-text"><strong>Click to upload</strong> or drag &amp; drop</div>
+              <div class="upload-text" style="margin-top:0.25rem;font-size:0.78rem;">JPG, PNG, PDF up to 5 MB</div>
+            </div>
+            <div class="file-preview" id="file-preview">
+              <span>📄</span>
+              <span id="file-name-display"></span>
+            </div>
+          </div>
+        </div>
+        <div class="submit-area">
+          <button class="btn btn-primary" style="max-width:220px;" id="submit-btn" onclick="submitExpense()">
+            Submit Expense
+          </button>
+          <button class="btn btn-secondary" style="max-width:120px;" onclick="resetForm()">Clear</button>
+        </div>
+        <div class="error-msg" id="submit-error"></div>
+        <div class="success-banner" id="submit-success">
+          <span>✅</span> Expense recorded successfully!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORDS TAB -->
+  <div class="tab-content" id="tab-records">
+    <div class="records-section">
+      <div class="records-header">
+        <div>
+          <h2 class="section-title">All Expenses</h2>
+          <p class="section-sub" style="margin:0">Live data from your Google Sheet</p>
+        </div>
+        <button class="refresh-btn" onclick="loadRecords()">🔄 Refresh</button>
+      </div>
+
+      <div class="summary-bar" id="summary-bar"></div>
+
+      <div class="filter-bar">
+        <select id="filter-period" onchange="applyFilter()">
+          <option value="all">All Time</option>
+          <option value="this_week">This Week</option>
+          <option value="last_week">Last Week</option>
+          <option value="this_month" selected>This Month</option>
+          <option value="last_month">Last Month</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <div id="custom-range" class="custom-range">
+          <input type="date" id="filter-from" onchange="applyFilter()">
+          <span>to</span>
+          <input type="date" id="filter-to" onchange="applyFilter()">
+        </div>
+        <span id="filter-count" class="filter-count"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Paid By</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Vendor</th>
+              <th>Payment</th>
+              <th>Notes</th>
+              <th>Photo</th>
+            </tr>
+          </thead>
+          <tbody id="records-body">
+            <tr><td colspan="8" class="no-data"><span class="no-data-icon">📊</span>Click Refresh to load records</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

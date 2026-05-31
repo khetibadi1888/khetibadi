@@ -1,0 +1,83 @@
+name: Deploy KhetiBadi
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # allow manual trigger from GitHub UI
+
+jobs:
+
+  # ── JOB 1: Deploy frontend to GitHub Pages ──────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend → GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Inject Render URL into app.js
+        # Replaces the placeholder with the real URL from GitHub Secrets
+        # so the actual Render URL is never hardcoded in the repo
+        run: |
+          sed -i 's|https://YOUR-RENDER-APP.onrender.com|${{ secrets.RENDER_URL }}|g' frontend/app.js
+
+      - name: Upload frontend as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+
+  # ── JOB 2: Deploy backend to Render ─────────────────────────────────────────
+  deploy-backend:
+    name: Deploy backend → Render
+    runs-on: ubuntu-latest
+    # Only deploy backend if proxy or business files changed
+    # Remove this 'if' if you want to always redeploy both
+    # if: |
+    #   contains(github.event.head_commit.modified, 'proxy/') ||
+    #   contains(github.event.head_commit.modified, 'business/')
+
+    steps:
+      - name: Trigger Render deploy hook
+        # Render provides a deploy hook URL — add it as RENDER_DEPLOY_HOOK secret
+        # Get it from: Render dashboard → your service → Settings → Deploy Hook
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            --request POST \
+            "${{ secrets.RENDER_DEPLOY_HOOK }}"
+
+      - name: Confirm deploy triggered
+        run: echo "Render deploy hook triggered successfully."
+
+
+  # ── JOB 3: Smoke test after deploy ──────────────────────────────────────────
+  smoke-test:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend]
+
+    steps:
+      - name: Wait for Render to finish deploying
+        run: sleep 30
+
+      - name: Check backend health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.RENDER_URL }}/api/health")
+          echo "Health check status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Backend health check failed!"
+            exit 1
+          fi
+          echo "Backend is healthy ✅"
